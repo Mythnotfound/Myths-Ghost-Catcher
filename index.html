@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MythsGhostCatcher</title>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--bg2:#12121a;--bg3:#1a1a25;--bg4:#22222f;
+  --border:#2a2a3a;--border2:#3a3a4a;
+  --text:#e8e8f0;--text2:#8888aa;--text3:#44445a;
+  --red:#e24b4a;--red-bg:#1f0f0f;--red-border:#4a1f1f;
+  --yellow:#ef9f27;--yellow-bg:#1f1a0a;--yellow-border:#4a3a0f;
+  --green:#4caf50;--green-bg:#0f1f0f;--green-border:#1f4a1f;
+  --blue:#5b9cf6;--blue-bg:#0f1525;--blue-border:#1a2f5a;
+  --purple:#9f7aff;--purple-bg:#15102a;--purple-border:#3a2a6a;
+  --accent:#7f5fff;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+body{background:var(--bg);color:var(--text);min-height:100vh;padding:2rem;max-width:900px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;padding-bottom:1rem;border-bottom:0.5px solid var(--border)}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,#3a1f6a,#7f5fff);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.logo-text{font-size:18px;font-weight:700;letter-spacing:-0.3px}
+.logo-sub{font-size:12px;color:var(--text2);margin-top:1px}
+.drop-zone{border:1.5px dashed var(--border2);border-radius:14px;padding:2.5rem;text-align:center;cursor:pointer;transition:all 0.15s;margin-bottom:1.5rem;background:var(--bg2)}
+.drop-zone:hover,.drop-zone.drag{background:var(--bg3);border-color:var(--accent)}
+.drop-icon{font-size:34px;margin-bottom:0.75rem}
+.drop-title{font-size:15px;font-weight:600;margin-bottom:0.4rem}
+.drop-sub{font-size:13px;color:var(--text2)}
+input[type=file]{display:none}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem}
+.stat{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.1rem}
+.stat-n{font-size:28px;font-weight:700;letter-spacing:-0.5px}
+.stat-l{font-size:11px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:0.05em}
+.stat.red .stat-n{color:var(--red)}
+.stat.yellow .stat-n{color:var(--yellow)}
+.stat.green .stat-n{color:var(--green)}
+/* progress */
+#progressWrap{display:none;background:var(--purple-bg);border:1px solid var(--purple-border);border-radius:12px;padding:1.25rem 1.5rem 1rem;margin-bottom:1.5rem}
+.prog-top{display:flex;align-items:center;gap:10px;margin-bottom:0.75rem}
+#spinnerDot{width:9px;height:9px;border-radius:50%;background:var(--purple);animation:pulse 0.9s infinite}
+#progressLabel{font-size:14px;font-weight:500;color:#c0b0ff}
+.prog-bar-bg{background:#0f0a1f;border-radius:6px;height:6px;overflow:hidden;margin-bottom:0.5rem}
+#progressFill{height:100%;background:linear-gradient(90deg,#5b2fff,#9f7aff);width:0%;transition:width 0.25s;border-radius:6px}
+#progressSub{font-size:12px;color:var(--text3)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.25}}
+/* toolbar */
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.filter-btn{padding:5px 13px;border-radius:20px;border:0.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;transition:all 0.1s}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);background:var(--purple-bg)}
+.ml-auto{margin-left:auto}
+/* badges */
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0;white-space:nowrap}
+.badge-red{background:var(--red-bg);color:var(--red);border:0.5px solid var(--red-border)}
+.badge-yellow{background:var(--yellow-bg);color:var(--yellow);border:0.5px solid var(--yellow-border)}
+.badge-green{background:var(--green-bg);color:var(--green);border:0.5px solid var(--green-border)}
+.badge-blue{background:var(--blue-bg);color:var(--blue);border:0.5px solid var(--blue-border)}
+.badge-purple{background:var(--purple-bg);color:var(--purple);border:0.5px solid var(--purple-border)}
+.badge-gray{background:var(--bg3);color:var(--text2);border:0.5px solid var(--border)}
+/* cards */
+.mod-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden;transition:border-color 0.15s}
+.mod-card.flagged{border-color:var(--red-border)}
+.mod-card.suspicious{border-color:var(--yellow-border)}
+.mod-header{display:flex;align-items:center;gap:10px;padding:0.85rem 1.1rem;cursor:pointer;user-select:none}
+.mod-header:hover{background:var(--bg3)}
+.verdict-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mod-name{font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mod-meta{font-size:11px;color:var(--text2);margin-top:2px}
+.chevron{color:var(--text3);font-size:11px;transition:transform 0.15s;flex-shrink:0}
+.chevron.open{transform:rotate(90deg)}
+/* mod body */
+.mod-body{border-top:0.5px solid var(--border);padding:1rem 1.1rem;display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.section-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:0.5rem}
+.info-row{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;border-bottom:0.5px solid var(--border);font-size:12px;gap:8px}
+.info-row:last-child{border-bottom:none}
+.info-key{color:var(--text2);flex-shrink:0}
+.info-val{text-align:right;word-break:break-all;color:var(--text);max-width:60%}
+.hash-val{font-family:monospace;font-size:10px;color:var(--text2);text-align:right;word-break:break-all}
+/* signals */
+.signals-section{grid-column:1/-1;border-top:0.5px solid var(--border);padding-top:0.85rem;margin-top:0.25rem}
+.signal-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:12px}
+.signal-row:last-child{border-bottom:none}
+.sig-icon{flex-shrink:0;margin-top:1px}
+.sig-left{flex:1;min-width:0}
+.sig-name{font-weight:600;margin-bottom:2px}
+.sig-note{color:var(--text2);font-size:11px}
+/* obfuscation meter */
+.obf-meter{margin-top:6px}
+.obf-bar-bg{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-top:4px}
+.obf-bar-fill{height:100%;border-radius:3px;transition:width 0.4s}
+/* tampering section */
+.tamper-box{background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;padding:0.6rem 0.8rem;font-size:12px;margin-top:0.5rem}
+.tamper-ok{border-color:var(--green-border);background:var(--green-bg)}
+.tamper-warn{border-color:var(--yellow-border);background:var(--yellow-bg)}
+.tamper-bad{border-color:var(--red-border);background:var(--red-bg)}
+/* buttons */
+.btn{padding:6px 13px;border:0.5px solid var(--border2);border-radius:8px;background:transparent;color:var(--text);font-size:12px;cursor:pointer;transition:background 0.1s}
+.btn:hover{background:var(--bg3)}
+.btn-danger{border-color:var(--red-border);color:var(--red)}
+.btn-danger:hover{background:var(--red-bg)}
+.banner{background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;padding:0.6rem 1rem;font-size:12px;color:var(--text2);margin-bottom:1.25rem;line-height:1.5}
+.empty{text-align:center;padding:4rem 1rem;color:var(--text2);font-size:14px}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.mixin-tag{display:inline-block;background:var(--bg4);border:0.5px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:monospace;margin:1px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">👻</div>
+    <div>
+      <div class="logo-text">MythsGhostCatcher</div>
+      <div class="logo-sub">Crystal PvP mod integrity scanner</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn" id="exportBtn" onclick="exportReport()" style="display:none">Export report</button>
+    <button class="btn btn-danger" id="clearBtn" onclick="clearAll()" style="display:none">Clear</button>
+  </div>
+</div>
+
+<div class="drop-zone" id="dropZone"
+  onclick="document.getElementById('fileInput').click()"
+  ondragover="event.preventDefault();this.classList.add('drag')"
+  ondragleave="this.classList.remove('drag')"
+  ondrop="handleDrop(event)">
+  <div class="drop-icon">📦</div>
+  <div class="drop-title">Drop your mods folder here</div>
+  <div class="drop-sub">Select all .jar files and drop — or click to browse. Everything runs locally.</div>
+  <input type="file" id="fileInput" multiple accept=".jar" onchange="handleFiles(this.files)">
+</div>
+
+<div id="progressWrap">
+  <div class="prog-top">
+    <div id="spinnerDot"></div>
+    <div id="progressLabel">Starting scan…</div>
+  </div>
+  <div class="prog-bar-bg"><div id="progressFill"></div></div>
+  <div id="progressSub">Preparing…</div>
+</div>
+
+<div id="statsRow" class="stats" style="display:none">
+  <div class="stat"><div class="stat-n" id="sTotal">0</div><div class="stat-l">scanned</div></div>
+  <div class="stat red"><div class="stat-n" id="sDanger">0</div><div class="stat-l">flagged</div></div>
+  <div class="stat yellow"><div class="stat-n" id="sWarn">0</div><div class="stat-l">suspicious</div></div>
+  <div class="stat green"><div class="stat-n" id="sOk">0</div><div class="stat-l">clean</div></div>
+</div>
+
+<div id="toolbar" class="toolbar" style="display:none">
+  <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+  <button class="filter-btn" onclick="setFilter('flagged',this)">Flagged</button>
+  <button class="filter-btn" onclick="setFilter('suspicious',this)">Suspicious</button>
+  <button class="filter-btn" onclick="setFilter('clean',this)">Clean</button>
+</div>
+
+<div id="banner" class="banner" style="display:none">
+  ℹ️ Modrinth hash check requires internet. Mods not on Modrinth may still be legit (private/unlisted). Heuristics flag <em>capability</em> — always review manually before banning a player.
+</div>
+
+<div id="results"></div>
+
+<script>
+// ── Signal definitions ────────────────────────────────────────────────────────
+// Each signal has:
+//   baseWeight   — score when corroboration is present (or not required)
+//   soloWeight   — score when this fires completely alone
+//   requiresAny  — at least one of these IDs must also fire for full weight
+//   note         — shown in UI explaining why it was or wasn't scored
+const SIGNALS = [
+
+  // ── TIER 1: Definitive, unambiguous cheat signals (no legit use case) ────────
+
+  {id:'crystal_aura', label:'Crystal / anchor PvP automation', baseWeight:9, soloWeight:9,
+   note:'No legitimate mod has crystal aura / anchor aura class names',
+   patterns:[/CrystalAura/,/AutoCrystal/,/autocrystal/i,/AnchorAura/,/BedAura/,
+             /SurroundBreaker/,/CrystalPlace(?!.*api)/,/breakCrystal(?!.*api)/,
+             /placeCrystal(?!.*api|.*shader|.*particle)/i]},
+
+  {id:'aimbot', label:'Aimbot / entity lock-on / kill aura', baseWeight:9, soloWeight:9,
+   note:'Camera lock-on systems, kill aura, and auto-attack targeting have no legit use',
+   patterns:[/KillAura/,/killaura/i,/LockOnCamera/,/lockOnTarget/,/lockOnCamera/,
+             /findTarget(?!.*block|.*item|.*slot)/,/pendingAttack/,/AimBot(?!.*smooth)/,
+             /AimAssist(?!.*config|.*option|.*gamepad)/,
+             /MIN_ATTACK_DELAY/,/RECENTLY_ATTACKED(?!.*cooldown)/,
+             /autoAttackEntity/,/meleeLockOn/,/meleeTarget(?!.*api)/,
+             /TargetPriority(?!.*config)/,/bestTarget(?!.*api)/,
+             /rotateTo.*(entity|player|mob)/i,/CameraSpring(?!.*smooth|.*cinematic)/]},
+
+  {id:'scaffold', label:'Scaffold / god-bridge hack', baseWeight:8, soloWeight:8,
+   note:'No legitimate mod purpose',
+   patterns:[/GodBridge/,/AutoBridge(?!.*mod|.*api)/,/ScaffoldWalk/,/TowerHack/,/ScaffoldHack/]},
+
+  {id:'reach', label:'Reach / hitbox expansion', baseWeight:8, soloWeight:8,
+   note:'No legitimate mod extends attack reach beyond vanilla',
+   patterns:[/extendReach/,/hitboxExpand/,/setCustomReach/,/ReachHack/,/reach.*cheat/i,
+             /entityReach(?!.*api|.*config\.reach)/,/customReach(?!.*config)/]},
+
+  {id:'speed_fly', label:'Speed / fly / movement hack', baseWeight:8, soloWeight:8,
+   note:'Definitive hack class names — not motion blur or shader movement',
+   patterns:[/FlyHack/,/SpeedHack/,/NoClipHack/,/LiquidWalk(?!.*shader)/,/BoatFly/,
+             /AntiKnockback/,/NoFall(?!.*config|.*option|.*fix|.*gamerule)/,/BoatFly/,
+             /HighJump(?!.*config)/,/BunnyHop/]},
+
+  {id:'xray', label:'X-ray / ore ESP', baseWeight:8, soloWeight:8,
+   note:'Definitive xray class names with no legitimate use',
+   patterns:[/XrayMod/,/OreESP/,/CaveFinderMod/,/XRayModule/,/XRayHack/,/xray.*hack/i]},
+
+  {id:'auto_equip', label:'Auto-equip totem / shield / gear', baseWeight:7, soloWeight:7,
+   note:'Totem/shield automation with no legit dual purpose',
+   patterns:[/equipOffhand(?!.*api|.*event)/,/equipTotem/,/autoEquip(?!.*config)/,
+             /AutoTotem/,/didTotemPop/,/totemRecentlyPopped/,/auto.?totem/i,
+             /shieldSwap(?!.*api)/,/offhandSwap(?!.*api)/]},
+
+  {id:'packet_cheat', label:'Cheat-specific packet injection', baseWeight:8, soloWeight:8,
+   note:'These patterns are specific to cheat implementations — not profilers or voice chat',
+   patterns:[/C0EPacket/,/CPacketUseEntity(?!.*event|.*listen)/,/inject.*packet/i,
+             /PacketFly/,/PacketNoFall/,/fakePacket/i,/spoofPacket/i,/PacketSpoof/]},
+
+  {id:'macro', label:'Macro / scripted input automation', baseWeight:7, soloWeight:7,
+   note:'Explicit macro class names with repeat/delay execution',
+   patterns:[/RepeatMacro/,/DelayedMacro/,/ToggleMacro/,/MacroEvent/,/MacroFlow/,
+             /macrokeybinds/,/InputMacro/,/autoclick(?!.*test|.*util)/i,/AutoClicker/]},
+
+  // ── TIER 2: Strong signals that need corroboration ────────────────────────────
+
+  {id:'esp_render', label:'ESP / wallhack rendering', baseWeight:7, soloWeight:1,
+   requiresAny:['aimbot','crystal_aura','reach','speed_fly','tick_attack'],
+   note:'Alone could be entity culling (legit). Only suspicious alongside targeting signals.',
+   patterns:[/EntityESP/,/WallHack/,/ThroughWall(?!.*check|.*cull|.*occlu)/,
+             /RenderESP/,/TracerESP/,/drawESP/,/renderThroughWall/i]},
+
+  {id:'tick_attack', label:'Tick-loop attack / place automation', baseWeight:7, soloWeight:4,
+   requiresAny:['auto_equip','crystal_aura','aimbot','reach','inventory_swap','macro'],
+   note:'onTick is universal — only suspicious when combined with attack/place/equip automation',
+   patterns:[/onTick.*attack/i,/onTick.*place/i,/onTick.*swing/i,
+             /tickAttack/,/attackOnTick/,/placeOnTick/,/attackTick/,
+             /pendingAttack(?!.*api)/,/attackStartTime/,/lastAttack(?!.*sound|.*event)/]},
+
+  {id:'inventory_swap', label:'Automated inventory / hotbar swapping', baseWeight:6, soloWeight:3,
+   requiresAny:['auto_equip','crystal_aura','tick_attack','aimbot'],
+   note:'Alone could be QoL inventory mod. Suspicious combined with attack/equip automation.',
+   patterns:[/swapToSlot/,/hotbarSwap(?!.*player|.*input)/,/autoSwap/,
+             /swapItem.*auto/i,/inventorySwap.*auto/i,/quickSwap(?!.*api)/]},
+
+  {id:'attack_callback', label:'Attack event interception', baseWeight:5, soloWeight:2,
+   requiresAny:['aimbot','tick_attack','crystal_aura','reach'],
+   note:'AttackEntityCallback is legit alone (e.g. RPG mods), suspicious with targeting systems',
+   patterns:[/AttackEntityCallback/,/UseEntityCallback/,/onAttack(?!.*log|.*event\.class)/,
+             /interceptAttack/,/shouldCancelAttack/,/realAttackPressed/,/isAttackPressed/]},
+
+  // ── TIER 3: Noise signals — informational only, never scored alone ────────────
+
+  {id:'glfw_raw', label:'Raw GLFW input hooks', baseWeight:2, soloWeight:0,
+   requiresAny:['macro','tick_attack','aimbot'],
+   note:'GLFW used by Sodium, window managers, legit input libs — only meaningful with macros.',
+   patterns:[/glfwGetKey(?!.*window|.*monitor)/,/glfwGetMouseButton/,/glfwSetCursorPos/]},
+
+  {id:'packet_generic', label:'Generic packet handling', baseWeight:0, soloWeight:0,
+   note:'sendPacket used by profilers, voice chat, networking mods — not scored alone.',
+   patterns:[/sendPacket/,/ClientPlayNetworkHandler/,/PacketPlayOut/,/NetworkManager/]},
+
+  {id:'tick_generic', label:'Tick event hook', baseWeight:0, soloWeight:0,
+   note:'ClientTickEvents used by almost every Fabric mod — not scored alone.',
+   patterns:[/onEndTick/,/ClientTickEvents/,/END_CLIENT_TICK/,/onClientTick/]},
+
+  {id:'thread_spawn', label:'Thread spawning', baseWeight:0, soloWeight:0,
+   note:'Spark, voice chat, and most performance mods spawn threads legitimately.',
+   patterns:[/new Thread\(/,/ThreadPoolExecutor/,/ScheduledExecutorService/]},
+];
+
+// ── Known obfuscators ─────────────────────────────────────────────────────────
+const OBF_TOOLS = [
+  {name:'Zelix KlassMaster',pattern:/Zelix/,severity:'high'},
+  {name:'Allatori',pattern:/Allatori/,severity:'high'},
+  {name:'SkidGuard',pattern:/SkidGuard/,severity:'high'},
+  {name:'Stringer',pattern:/Stringer/,severity:'medium'},
+  {name:'DashO',pattern:/DashO/,severity:'medium'},
+  {name:'yGuard',pattern:/yGuard/,severity:'medium'},
+  {name:'ProGuard',pattern:/proguard/i,severity:'low'},
+];
+
+// ── Scoring engine ────────────────────────────────────────────────────────────
+function scoreSignals(detectedIds, isVerified) {
+  const idSet = new Set(detectedIds);
+  let total = 0;
+  const scored = [];
+  for (const sig of SIGNALS) {
+    if (!idSet.has(sig.id)) continue;
+    const hasCorr = !sig.requiresAny || sig.requiresAny.some(id => idSet.has(id));
+    let w = hasCorr ? sig.baseWeight : sig.soloWeight;
+    if (isVerified && w < 8) w = Math.floor(w / 2);
+    scored.push({...sig, effectiveWeight:w, hadCorroboration:hasCorr});
+    total += w;
+  }
+  return {scored, total};
+}
+
+// ── Obfuscation analysis ──────────────────────────────────────────────────────
+function analyzeObfuscation(classNames, allText, fileSize) {
+  const total = classNames.length;
+  if (total === 0) return {rating:'unknown', score:0, grade:'?', detail:'No classes found'};
+
+  // Name suspicion ratio
+  const suspNames = classNames.filter(n => n.length <= 2 || /^[a-z]{1,3}$/.test(n) || /^[A-Z][a-z]?[0-9]{1,3}$/.test(n));
+  const nameRatio = suspNames.length / Math.max(total, 1);
+
+  // Detect specific obfuscator tools in bytecode
+  const detectedTools = OBF_TOOLS.filter(t => t.pattern.test(allText));
+
+  // Check for string encryption markers
+  const hasStringEncryption = /decryptString|StringDecryptor|deobfuscate|EncryptedString/i.test(allText);
+
+  // Check for synthetic/bridge method heavy use (common in obfuscated code)
+  const syntheticRatio = (allText.match(/synthetic|bridge|access\$[0-9]+/g)||[]).length / Math.max(total, 1);
+
+  // Build score 0-100
+  let score = 0;
+  score += nameRatio * 40; // up to 40pts for suspicious names
+  score += detectedTools.filter(t=>t.severity==='high').length * 20;
+  score += detectedTools.filter(t=>t.severity==='medium').length * 10;
+  score += detectedTools.filter(t=>t.severity==='low').length * 5;
+  if (hasStringEncryption) score += 20;
+  score += Math.min(syntheticRatio * 5, 10);
+  score = Math.min(Math.round(score), 100);
+
+  const grade = score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : score >= 20 ? 'D' : 'F';
+  const gradeLabel = {A:'Heavily obfuscated', B:'Moderately obfuscated', C:'Lightly obfuscated', D:'Minimal obfuscation', F:'Not obfuscated'};
+  const details = [];
+  if (suspNames.length > 0) details.push(`${suspNames.length}/${total} suspicious class names (${Math.round(nameRatio*100)}%)`);
+  if (detectedTools.length > 0) details.push(`Tools: ${detectedTools.map(t=>t.name).join(', ')}`);
+  if (hasStringEncryption) details.push('String encryption detected');
+
+  return {score, grade, label:gradeLabel[grade], detail:details.join(' · ')||'No indicators found', detectedTools, hasStringEncryption, nameRatio};
+}
+
+// ── Modrinth version tampering check ─────────────────────────────────────────
+async function checkModrinthTampering(sha1, sha256, modId, localVersion) {
+  const result = {
+    hashMatch: false,       // does this exact jar exist on Modrinth?
+    projectExists: false,   // does this mod ID exist on Modrinth at all?
+    versionExists: false,   // does this version string exist on Modrinth for this project?
+    allVersions: [],        // all version strings on Modrinth for this project
+    projectId: null,
+    versionId: null,
+    projectName: null,
+    tampering: 'unknown',   // 'none' | 'modified_jar' | 'fake_version' | 'unknown_mod' | 'unknown'
+    reason: '',
+  };
+
+  // Step 1: hash check — does this exact jar exist anywhere on Modrinth?
+  try {
+    const r = await fetch(`https://api.modrinth.com/v2/version_file/${sha1}?algorithm=sha1`);
+    if (r.ok) {
+      const d = await r.json();
+      result.hashMatch = true;
+      result.projectExists = true;
+      result.versionExists = true;
+      result.projectId = d.project_id;
+      result.versionId = d.id;
+      result.projectName = d.name;
+      result.tampering = 'none';
+      result.reason = 'Exact jar hash verified on Modrinth';
+      return result;
+    }
+  } catch {}
+
+  // Try sha256 too
+  try {
+    const r = await fetch(`https://api.modrinth.com/v2/version_file/${sha256}?algorithm=sha256`);
+    if (r.ok) {
+      const d = await r.json();
+      result.hashMatch = true;
+      result.projectExists = true;
+      result.versionExists = true;
+      result.projectId = d.project_id;
+      result.versionId = d.id;
+      result.projectName = d.name;
+      result.tampering = 'none';
+      result.reason = 'Exact jar hash verified on Modrinth';
+      return result;
+    }
+  } catch {}
+
+  // Step 2: hash not found — does the mod ID exist on Modrinth?
+  if (modId) {
+    try {
+      const r = await fetch(`https://api.modrinth.com/v2/project/${modId}`);
+      if (r.ok) {
+        const proj = await r.json();
+        result.projectExists = true;
+        result.projectId = proj.id;
+        result.projectName = proj.title;
+
+        // Step 3: fetch all versions for this project
+        try {
+          const vr = await fetch(`https://api.modrinth.com/v2/project/${proj.id}/version`);
+          if (vr.ok) {
+            const versions = await vr.json();
+            result.allVersions = versions.map(v => v.version_number);
+            result.versionExists = result.allVersions.some(v => v === localVersion || localVersion?.startsWith(v) || v?.startsWith(localVersion));
+
+            if (!result.versionExists) {
+              result.tampering = 'fake_version';
+              result.reason = `Mod ID "${modId}" exists on Modrinth but version "${localVersion}" does not match any of ${result.allVersions.length} known versions`;
+            } else {
+              result.tampering = 'modified_jar';
+              result.reason = `Version "${localVersion}" exists on Modrinth for this mod, but the jar hash doesn't match — file may have been recompiled or modified`;
+            }
+          }
+        } catch {}
+      } else {
+        result.tampering = 'unknown_mod';
+        result.reason = `Mod ID "${modId}" not found on Modrinth — could be a private/custom mod or a spoofed mod ID`;
+      }
+    } catch {}
+  } else {
+    result.reason = 'No mod ID found in fabric.mod.json';
+    result.tampering = 'unknown';
+  }
+
+  return result;
+}
+
+// ── Main jar analysis ─────────────────────────────────────────────────────────
+async function analyzeJar(file) {
+  const buf = await file.arrayBuffer();
+  const sha256 = await computeHash(buf, 'SHA-256');
+  const sha1 = await computeSHA1(buf);
+
+  const zip = await JSZip.loadAsync(buf);
+  let fabricMeta = null;
+  let allText = '';
+  const classNames = [];
+  const mixinClasses = [];
+  let hasNestedJars = false;
+  let classCount = 0;
+
+  for (const [path, entry] of Object.entries(zip.files)) {
+    if (entry.dir) continue;
+    if (path === 'fabric.mod.json' || path.endsWith('/fabric.mod.json')) {
+      try { fabricMeta = JSON.parse(await entry.async('string')); } catch {}
+    }
+    if (path.endsWith('.class')) {
+      classCount++;
+      classNames.push(path.replace(/\.class$/, '').replace(/.*\//, ''));
+      try {
+        const bytes = await entry.async('uint8array');
+        allText += extractClassStrings(bytes) + '\n';
+      } catch {}
+    }
+    if (path.endsWith('.mixins.json')) {
+      try {
+        const mx = JSON.parse(await entry.async('string'));
+        mixinClasses.push(...(mx.mixins||[]), ...(mx.client||[]), ...(mx.server||[]));
+      } catch {}
+    }
+    if (path.startsWith('META-INF/jars/') && path.endsWith('.jar')) hasNestedJars = true;
+  }
+
+  // Obfuscation analysis
+  const obf = analyzeObfuscation(classNames, allText, file.size);
+
+  // Modrinth tampering check
+  const modId = fabricMeta?.id;
+  const localVersion = fabricMeta?.version;
+  const tamper = await checkModrinthTampering(sha1, sha256, modId, localVersion);
+
+  // Signal detection
+  const rawDetected = SIGNALS.filter(s => s.patterns.some(p => p.test(allText))).map(s => ({
+    id: s.id, matchCount: s.patterns.filter(p => p.test(allText)).length
+  }));
+
+  const {scored, total: totalScore} = scoreSignals(rawDetected.map(s => s.id), tamper.hashMatch);
+
+  // Obfuscation adds to threat score if not Modrinth verified
+  let obfThreat = 0;
+  if (!tamper.hashMatch) obfThreat = Math.floor(obf.score / 20); // 0-5 extra pts
+
+  const finalScore = totalScore + obfThreat;
+
+  const signals = scored
+    .map(s => ({...s, matchCount: rawDetected.find(d => d.id === s.id)?.matchCount || 0}))
+    .filter(s => s.effectiveWeight > 0 || s.baseWeight >= 7);
+
+  // Verdict
+  let verdict = 'clean';
+  if (finalScore >= 8 || tamper.tampering === 'modified_jar' || tamper.tampering === 'fake_version') {
+    verdict = 'flagged';
+  } else if (finalScore >= 3 || (obf.score >= 60 && !tamper.hashMatch) || tamper.tampering === 'unknown_mod') {
+    verdict = 'suspicious';
+  }
+
+  return {
+    filename: file.name, size: file.size,
+    sha1, sha256, fabricMeta, classCount, mixinClasses, hasNestedJars,
+    obf, tamper, signals, verdict, finalScore
+  };
+}
+
+// ── Bytecode string extraction ────────────────────────────────────────────────
+function extractClassStrings(bytes) {
+  let out = '';
+  let i = 8;
+  while (i < bytes.length - 3) {
+    if (bytes[i] === 1) {
+      const len = (bytes[i+1] << 8) | bytes[i+2];
+      i += 3;
+      if (len > 0 && i + len <= bytes.length) {
+        try { out += new TextDecoder('utf-8', {fatal:false}).decode(bytes.slice(i, i+len)) + '\n'; } catch {}
+        i += len;
+      }
+    } else {
+      const sizes = {3:4,4:4,5:8,6:8,7:2,8:2,9:4,10:4,11:4,12:4,15:3,16:2,17:4,18:4,19:2,20:2};
+      i += 1 + (sizes[bytes[i]] || 0);
+    }
+  }
+  return out;
+}
+
+// ── SHA-1 ─────────────────────────────────────────────────────────────────────
+async function computeHash(buf, algo) {
+  const h = await crypto.subtle.digest(algo, buf);
+  return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function computeSHA1(buf) {
+  const bytes = new Uint8Array(buf);
+  let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;
+  const ml = bytes.length * 8;
+  const padded = new Uint8Array(Math.ceil((bytes.length+9)/64)*64);
+  padded.set(bytes); padded[bytes.length] = 0x80;
+  const dv = new DataView(padded.buffer);
+  dv.setUint32(padded.length-4, ml>>>0, false);
+  dv.setUint32(padded.length-8, Math.floor(ml/2**32), false);
+  const w = new Uint32Array(80);
+  for (let i=0; i<padded.length; i+=64) {
+    for (let j=0; j<16; j++) w[j]=dv.getUint32(i+j*4,false);
+    for (let j=16; j<80; j++) { const x=w[j-3]^w[j-8]^w[j-14]^w[j-16]; w[j]=(x<<1)|(x>>>31); }
+    let a=h0,b=h1,c=h2,d=h3,e=h4;
+    for (let j=0; j<80; j++) {
+      let f,k;
+      if(j<20){f=(b&c)|(~b&d);k=0x5A827999;}
+      else if(j<40){f=b^c^d;k=0x6ED9EBA1;}
+      else if(j<60){f=(b&c)|(b&d)|(c&d);k=0x8F1BBCDC;}
+      else{f=b^c^d;k=0xCA62C1D6;}
+      const tmp=(((a<<5)|(a>>>27))+f+e+k+w[j])>>>0;
+      e=d;d=c;c=(b<<30)|(b>>>2);b=a;a=tmp;
+    }
+    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;
+  }
+  return [h0,h1,h2,h3,h4].map(n=>n.toString(16).padStart(8,'0')).join('');
+}
+
+// ── UI state ──────────────────────────────────────────────────────────────────
+let results = [], expanded = new Set(), filter = 'all';
+
+function clearAll() {
+  results=[]; expanded=new Set(); filter='all';
+  ['results','statsRow','toolbar','banner'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.innerHTML='';el.style.display='none';}
+  });
+  document.getElementById('clearBtn').style.display='none';
+  document.getElementById('exportBtn').style.display='none';
+  document.getElementById('progressWrap').style.display='none';
+  document.querySelectorAll('.filter-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+}
+
+function setFilter(f, el) {
+  filter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+async function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  const files=[...e.dataTransfer.files].filter(f=>f.name.endsWith('.jar'));
+  if(files.length) await processFiles(files);
+}
+async function handleFiles(fl) {
+  const files=[...fl].filter(f=>f.name.endsWith('.jar'));
+  if(files.length) await processFiles(files);
+}
+
+async function processFiles(files) {
+  const fill=document.getElementById('progressFill');
+  const label=document.getElementById('progressLabel');
+  const sub=document.getElementById('progressSub');
+  document.getElementById('progressWrap').style.display='block';
+  document.getElementById('clearBtn').style.display='inline-block';
+  document.getElementById('exportBtn').style.display='inline-block';
+  window.scrollTo(0,0);
+
+  for (let i=0; i<files.length; i++) {
+    fill.style.width=Math.round((i/files.length)*100)+'%';
+    label.textContent=`Scanning ${i+1} of ${files.length} mods…`;
+    sub.textContent=files[i].name;
+    await new Promise(r=>setTimeout(r,0));
+    try {
+      const r=await analyzeJar(files[i]);
+      const idx=results.findIndex(x=>x.filename===r.filename&&x.size===r.size);
+      if(idx>=0) results[idx]=r; else results.push(r);
+    } catch(err) {
+      results.push({filename:files[i].name,size:files[i].size,error:err.message,verdict:'error',signals:[],fabricMeta:null,classCount:0,obf:{score:0,grade:'?',label:'Unknown',detail:''},tamper:{tampering:'unknown',reason:'parse error',hashMatch:false,projectExists:false,allVersions:[]},finalScore:0});
+    }
+  }
+  fill.style.width='100%';
+  label.textContent='Scan complete!';
+  sub.textContent=`${results.length} mod${results.length!==1?'s':''} analysed`;
+  document.getElementById('spinnerDot').style.animation='none';
+  document.getElementById('spinnerDot').style.background='#4caf50';
+  setTimeout(()=>{document.getElementById('progressWrap').style.display='none';},1500);
+  renderAll();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function verdictDot(v){return v==='flagged'?'#e24b4a':v==='suspicious'?'#ef9f27':v==='clean'?'#4caf50':'#555';}
+function verdictBadge(v){return v==='flagged'?'badge-red':v==='suspicious'?'badge-yellow':v==='clean'?'badge-green':'badge-gray';}
+function verdictLabel(v){return v==='flagged'?'🚨 Flagged':v==='suspicious'?'⚠ Suspicious':v==='clean'?'✓ Clean':'Error';}
+function sigIcon(w){return w>=7?'🔴':w>=3?'🟡':'⚪';}
+function sigBadge(w){return w>=7?'badge-red':w>=3?'badge-yellow':'badge-gray';}
+
+function obfGradeColor(g){
+  return {A:'#e24b4a',B:'#ef9f27',C:'#f0c040',D:'#8888aa',F:'#4caf50'}[g]||'#888';
+}
+
+function tamperBox(t) {
+  if(t.tampering==='none') return `<div class="tamper-box tamper-ok">✓ Jar hash verified — no tampering detected</div>`;
+  if(t.tampering==='modified_jar') return `<div class="tamper-box tamper-bad">🚨 <strong>Modified jar detected</strong> — version exists on Modrinth but hash doesn't match. Jar was likely recompiled.</div>`;
+  if(t.tampering==='fake_version') return `<div class="tamper-box tamper-bad">🚨 <strong>Version mismatch</strong> — mod ID exists on Modrinth but version "${t.reason.match(/"([^"]+)" does not/)?.[1]||''}" is not a real release. Known versions: ${t.allVersions.slice(0,5).join(', ')}${t.allVersions.length>5?'…':''}</div>`;
+  if(t.tampering==='unknown_mod') return `<div class="tamper-box tamper-warn">⚠ Mod ID not found on Modrinth — private, custom, or spoofed mod</div>`;
+  return `<div class="tamper-box">Hash not checked or network unavailable</div>`;
+}
+
+function renderAll() {
+  document.getElementById('statsRow').style.display='grid';
+  document.getElementById('toolbar').style.display='flex';
+  document.getElementById('banner').style.display='block';
+  document.getElementById('sTotal').textContent=results.length;
+  document.getElementById('sDanger').textContent=results.filter(r=>r.verdict==='flagged').length;
+  document.getElementById('sWarn').textContent=results.filter(r=>r.verdict==='suspicious').length;
+  document.getElementById('sOk').textContent=results.filter(r=>r.verdict==='clean').length;
+
+  const filtered=filter==='all'?results:results.filter(r=>r.verdict===filter);
+  const sorted=[...filtered].sort((a,b)=>({flagged:0,suspicious:1,clean:2,error:3}[a.verdict]-({flagged:0,suspicious:1,clean:2,error:3}[b.verdict])));
+  document.getElementById('results').innerHTML=sorted.length?sorted.map(renderCard).join(''):'<div class="empty">No mods match this filter.</div>';
+}
+
+function renderCard(r) {
+  const open=expanded.has(r.filename);
+  const t=r.tamper;
+  const o=r.obf;
+
+  const mrBadge=t.hashMatch
+    ?`<span class="badge badge-green">✓ Verified</span>`
+    :t.tampering==='modified_jar'?`<span class="badge badge-red">⚡ Modified</span>`
+    :t.tampering==='fake_version'?`<span class="badge badge-red">⚡ Fake version</span>`
+    :`<span class="badge badge-yellow">Not on Modrinth</span>`;
+
+  const obfBadge=o.score>=60?`<span class="badge badge-red">Obf: ${o.grade}</span>`
+    :o.score>=20?`<span class="badge badge-yellow">Obf: ${o.grade}</span>`
+    :`<span class="badge badge-gray">Obf: ${o.grade}</span>`;
+
+  const body=open?`<div class="mod-body">
+    ${r.error?`<div style="color:var(--red);font-size:12px;grid-column:1/-1">Parse error: ${r.error}</div>`:`
+    <div>
+      <div class="section-label">Mod info</div>
+      <div class="info-row"><span class="info-key">Mod ID</span><span class="info-val">${r.fabricMeta?.id||'—'}</span></div>
+      <div class="info-row"><span class="info-key">Version</span><span class="info-val">${r.fabricMeta?.version||'—'}</span></div>
+      <div class="info-row"><span class="info-key">Author</span><span class="info-val">${r.fabricMeta?.authors?.[0]||'—'}</span></div>
+      <div class="info-row"><span class="info-key">Environment</span><span class="info-val">${r.fabricMeta?.environment||'—'}</span></div>
+      <div class="info-row"><span class="info-key">Classes</span><span class="info-val">${r.classCount}</span></div>
+      <div class="info-row"><span class="info-key">Nested JARs</span><span class="info-val">${r.hasNestedJars?'Yes':'No'}</span></div>
+      <div class="info-row"><span class="info-key">Mixins</span><span class="info-val" style="font-size:11px">${r.mixinClasses?.length?r.mixinClasses.slice(0,4).map(m=>`<span class="mixin-tag">${m}</span>`).join('')+(r.mixinClasses.length>4?` +${r.mixinClasses.length-4} more`:''):'None'}</span></div>
+    </div>
+    <div>
+      <div class="section-label">Integrity</div>
+      <div class="info-row"><span class="info-key">SHA-1</span><span class="hash-val">${r.sha1}</span></div>
+      <div class="info-row"><span class="info-key">SHA-256</span><span class="hash-val">${r.sha256?.slice(0,24)}…</span></div>
+      <div class="info-row"><span class="info-key">Modrinth</span><span class="info-val">${t.projectId?`<a href="https://modrinth.com/mod/${t.projectId}" target="_blank">View ↗</a>`:'—'}</span></div>
+      <div class="info-row"><span class="info-key">Threat score</span><span class="info-val" style="color:${r.finalScore>=8?'var(--red)':r.finalScore>=3?'var(--yellow)':'var(--green)'};font-weight:600">${r.finalScore}</span></div>
+      <div style="margin-top:8px">${tamperBox(t)}</div>
+      <div class="obf-meter" style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:var(--text2)">Obfuscation</span>
+          <span style="font-size:12px;font-weight:700;color:${obfGradeColor(o.grade)}">${o.grade} — ${o.label}</span>
+        </div>
+        <div class="obf-bar-bg"><div class="obf-bar-fill" style="width:${o.score}%;background:${obfGradeColor(o.grade)}"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">${o.detail||'No obfuscation indicators'}</div>
+      </div>
+    </div>
+    <div class="signals-section">
+      <div class="section-label" style="margin-bottom:0.5rem">Signals (${r.signals.length} active)</div>
+      ${r.signals.length?r.signals.map(s=>`<div class="signal-row">
+        <span class="sig-icon">${sigIcon(s.effectiveWeight)}</span>
+        <div class="sig-left">
+          <div class="sig-name">${s.label}</div>
+          <div class="sig-note">${s.note||''}</div>
+        </div>
+        <span style="font-size:11px;color:var(--text2);margin-right:6px">${s.matchCount} match${s.matchCount!==1?'es':''}</span>
+        <span class="badge ${sigBadge(s.effectiveWeight)}">+${s.effectiveWeight}</span>
+      </div>`).join(''):`<div style="font-size:12px;color:var(--text2);padding:0.4rem 0">No suspicious signals detected.</div>`}
+    </div>`}
+  </div>`:'';
+
+  return`<div class="mod-card ${r.verdict}">
+    <div class="mod-header" onclick="toggle('${r.filename.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+      <div class="verdict-dot" style="background:${verdictDot(r.verdict)}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="mod-name">${r.filename}</div>
+        <div class="mod-meta">${r.fabricMeta?.name||''} ${r.fabricMeta?.version?'v'+r.fabricMeta.version:''} · ${(r.size/1024).toFixed(0)} KB · ${r.classCount} classes</div>
+      </div>
+      ${obfBadge}
+      ${mrBadge}
+      <span class="badge ${verdictBadge(r.verdict)}">${verdictLabel(r.verdict)}</span>
+      <span class="chevron ${open?'open':''}">▶</span>
+    </div>
+    ${body}
+  </div>`;
+}
+
+function toggle(name) {
+  if(expanded.has(name)) expanded.delete(name); else expanded.add(name);
+  renderAll();
+}
+
+function exportReport() {
+  const lines=['MYTHSGHOSTCATCHER — SCAN REPORT','Generated: '+new Date().toLocaleString(),''];
+  for(const r of results){
+    lines.push('═══════════════════════════════════════');
+    lines.push(`FILE:         ${r.filename}`);
+    lines.push(`VERDICT:      ${r.verdict.toUpperCase()}`);
+    lines.push(`THREAT SCORE: ${r.finalScore}`);
+    lines.push(`MOD ID:       ${r.fabricMeta?.id||'unknown'}`);
+    lines.push(`VERSION:      ${r.fabricMeta?.version||'unknown'}`);
+    lines.push(`SHA-1:        ${r.sha1}`);
+    lines.push(`MODRINTH:     ${r.tamper.tampering==='none'?'VERIFIED':r.tamper.tampering.toUpperCase()}`);
+    lines.push(`TAMPER:       ${r.tamper.reason}`);
+    lines.push(`OBFUSCATION:  Grade ${r.obf.grade} (${r.obf.score}/100) — ${r.obf.label}`);
+    if(r.obf.detail) lines.push(`  ${r.obf.detail}`);
+    if(r.signals.length){lines.push('SIGNALS:');for(const s of r.signals)lines.push(`  [+${s.effectiveWeight}] ${s.label} — ${s.matchCount} match(es)`);}
+    lines.push('');
+  }
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='mythsghostcatcher_'+Date.now()+'.txt';
+  a.click();
+}
+</script>
+</body>
+</html>
