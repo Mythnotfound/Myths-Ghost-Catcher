@@ -180,17 +180,21 @@ const SIGNALS = [
    note:'No legitimate mod has crystal aura / anchor aura class names',
    patterns:[/CrystalAura/,/AutoCrystal/,/autocrystal/i,/AnchorAura/,/BedAura/,
              /SurroundBreaker/,/CrystalPlace(?!.*api)/,/breakCrystal(?!.*api)/,
-             /placeCrystal(?!.*api|.*shader|.*particle)/i]},
+             /placeCrystal(?!.*api|.*shader|.*particle)/i,
+             /auto_hit_crystal/,/PLACE_CRYSTAL/,/BREAK_CRYSTAL/,/nearbyCrystals/,
+             /arePeopleAimingAtBlock/,/double_anchor/,/safe_anchor/,/PLACE_OBI/,
+             /auto_web(?!.*test)/,/fast_place(?!.*api)/]},
 
   {id:'aimbot', label:'Aimbot / entity lock-on / kill aura', baseWeight:9, soloWeight:9,
    note:'Camera lock-on systems, kill aura, and auto-attack targeting have no legit use',
    patterns:[/KillAura/,/killaura/i,/LockOnCamera/,/lockOnTarget/,/lockOnCamera/,
              /findTarget(?!.*block|.*item|.*slot)/,/pendingAttack/,/AimBot(?!.*smooth)/,
-             /AimAssist(?!.*config|.*option|.*gamepad)/,
+             /AimAssist(?!.*config|.*option|.*gamepad)/,/aim_assist(?!.*config)/,
              /MIN_ATTACK_DELAY/,/RECENTLY_ATTACKED(?!.*cooldown)/,
              /autoAttackEntity/,/meleeLockOn/,/meleeTarget(?!.*api)/,
-             /TargetPriority(?!.*config)/,/bestTarget(?!.*api)/,
-             /rotateTo.*(entity|player|mob)/i,/CameraSpring(?!.*smooth|.*cinematic)/]},
+             /TargetPriority(?!.*config)/,/bestTarget(?!.*api)/,/TARGET_ORDERS/,
+             /rotateTo.*(entity|player|mob)/i,/CameraSpring(?!.*smooth|.*cinematic)/,
+             /lambda\$findTarget/,/Switch Target Key/]},
 
   {id:'scaffold', label:'Scaffold / god-bridge hack', baseWeight:8, soloWeight:8,
    note:'No legitimate mod purpose',
@@ -215,7 +219,26 @@ const SIGNALS = [
    note:'Totem/shield automation with no legit dual purpose',
    patterns:[/equipOffhand(?!.*api|.*event)/,/equipTotem/,/autoEquip(?!.*config)/,
              /AutoTotem/,/didTotemPop/,/totemRecentlyPopped/,/auto.?totem/i,
-             /shieldSwap(?!.*api)/,/offhandSwap(?!.*api)/]},
+             /shieldSwap(?!.*api)/,/offhandSwap(?!.*api)/,
+             /totem_offhand/,/REOFFICHAND_TOTEM/,/hover_totem/,/auto_inventory_totem/,
+             /Totem Pop/,/auto_totem_hit/,/LOW_TOTEM/,/popped a totem/]},
+
+  {id:'closet_client', label:'Closet cheat client structure', baseWeight:8, soloWeight:8,
+   note:'Module system, feature toggles, and combat macros are hallmarks of cheat clients',
+   patterns:[/MODULE_ENABLED/,/MODULE_DISABLED/,/MacroState/,/COMBAT(?!.*config|.*event)/,
+             /auto_pot(?!.*ion\.effect)/,/auto_neth_pot/,/auto_pot_refill/,
+             /auto_mace/,/auto_dtap/,/auto_jump_reset/,/CLICKFOOD/,/CLICKGEAR/,
+             /CLICKCARROT/,/CLICKXP/,/CLICKOBI/,/CLICKPEARL/,/CLICKSTACK/,
+             /key_pearl/,/breach(?!.*data|.*sec)/,/AUTOEAT/,/AUTOMEND/,
+             /Renders entities through walls/,/Automatically attacks/i,
+             /places.*crystal/i,/hits.*crystal/i,/places.*totem/i]},
+
+  {id:'phone_home', label:'Network exfiltration / license check', baseWeight:6, soloWeight:5,
+   requiresAny:['closet_client','crystal_aura','aimbot','macro'],
+   note:'HTTP client + crypto in a mod is suspicious — likely auth server or string decryption',
+   patterns:[/javax\/crypto\/spec\/SecretKeySpec/,/HttpResponse\$BodyHandler/,
+             /java\/net\/http\/HttpResponse/,/sendAsync(?!.*event)/,
+             /getResponseCode/,/SecretKeySpec/,/AES.*decrypt/i,/decrypt.*String/i]},
 
   {id:'packet_cheat', label:'Cheat-specific packet injection', baseWeight:8, soloWeight:8,
    note:'These patterns are specific to cheat implementations — not profilers or voice chat',
@@ -304,28 +327,50 @@ function scoreSignals(detectedIds, isVerified) {
 // ── Obfuscation analysis ──────────────────────────────────────────────────────
 function analyzeObfuscation(classNames, allText, fileSize) {
   const total = classNames.length;
-  if (total === 0) return {rating:'unknown', score:0, grade:'?', detail:'No classes found'};
+  if (total === 0) return {score:0, grade:'?', label:'Unknown', detail:'No classes found', detectedTools:[], hasStringEncryption:false, hasDecoyClasses:false, hasRepackagedLibs:false, nameRatio:0};
 
-  // Name suspicion ratio
-  const suspNames = classNames.filter(n => n.length <= 2 || /^[a-z]{1,3}$/.test(n) || /^[A-Z][a-z]?[0-9]{1,3}$/.test(n));
+  // Suspicious name ratio — single/double letters, letter+number, dqrkis-style CamelCaseZ3
+  const suspNames = classNames.filter(n =>
+    n.length <= 2 ||
+    /^[a-z]{1,3}$/.test(n) ||
+    /^[A-Z][a-z]?[0-9]{1,3}$/.test(n) ||
+    /^[A-Z][a-z]{1,5}[A-Z][0-9]+$/.test(n)
+  );
   const nameRatio = suspNames.length / Math.max(total, 1);
 
-  // Detect specific obfuscator tools in bytecode
+  // Known obfuscator tool markers
   const detectedTools = OBF_TOOLS.filter(t => t.pattern.test(allText));
 
-  // Check for string encryption markers
-  const hasStringEncryption = /decryptString|StringDecryptor|deobfuscate|EncryptedString/i.test(allText);
+  // String encryption / crypto
+  const hasStringEncryption = /decryptString|StringDecryptor|deobfuscate|EncryptedString|SecretKeySpec|AES.*decrypt/i.test(allText);
 
-  // Check for synthetic/bridge method heavy use (common in obfuscated code)
+  // Synthetic/bridge method ratio
   const syntheticRatio = (allText.match(/synthetic|bridge|access\$[0-9]+/g)||[]).length / Math.max(total, 1);
 
-  // Build score 0-100
+  // Decoy class pattern — fake legit-sounding names used as cover (dqrkis technique)
+  const hasDecoyPackage = classNames.some(n => /^[a-z]$/.test(n));
+  const DECOY_NAMES = ['BlockEntityTickHelper','CallbackInjector','EntityModelLoader',
+    'EntityTickScheduler','KeyBindingHandler','MouseScrollHelper','PacketBundler',
+    'ShieldBlockHelper','FlyNodeEvaluator','PerformanceMonitor','BytecodeAnalyzer',
+    'ClassTransformerUtil','MethodRemapper','InsnListBuilder','ChannelPipelineInit'];
+  const hasDecoyClasses = DECOY_NAMES.some(d => classNames.includes(d));
+
+  // Repackaged stdlib — hiding cheat code inside google/netty/minecraft namespaces
+  const hasRepackagedLibs =
+    /com\/google\/common\/collect\/C[0-9a-f]{9}/.test(allText) ||
+    /io\/netty\/channel\/epoll\/C[0-9a-f]{9}/.test(allText) ||
+    /net\/fabricmc\/api\/C[0-9a-f]{9}/.test(allText) ||
+    /net\/minecraft\/client\/.*\/C[0-9a-f]{9}/.test(allText);
+
+  // Score
   let score = 0;
-  score += nameRatio * 40; // up to 40pts for suspicious names
+  score += nameRatio * 35;
   score += detectedTools.filter(t=>t.severity==='high').length * 20;
   score += detectedTools.filter(t=>t.severity==='medium').length * 10;
   score += detectedTools.filter(t=>t.severity==='low').length * 5;
   if (hasStringEncryption) score += 20;
+  if (hasDecoyPackage && hasDecoyClasses) score += 25;
+  if (hasRepackagedLibs) score += 20;
   score += Math.min(syntheticRatio * 5, 10);
   score = Math.min(Math.round(score), 100);
 
@@ -333,10 +378,12 @@ function analyzeObfuscation(classNames, allText, fileSize) {
   const gradeLabel = {A:'Heavily obfuscated', B:'Moderately obfuscated', C:'Lightly obfuscated', D:'Minimal obfuscation', F:'Not obfuscated'};
   const details = [];
   if (suspNames.length > 0) details.push(`${suspNames.length}/${total} suspicious class names (${Math.round(nameRatio*100)}%)`);
-  if (detectedTools.length > 0) details.push(`Tools: ${detectedTools.map(t=>t.name).join(', ')}`);
-  if (hasStringEncryption) details.push('String encryption detected');
+  if (hasDecoyPackage && hasDecoyClasses) details.push('Decoy class names detected (fake legit names masking real code)');
+  if (hasRepackagedLibs) details.push('Standard libraries repackaged under obfuscated namespaces');
+  if (detectedTools.length > 0) details.push(`Obfuscator: ${detectedTools.map(t=>t.name).join(', ')}`);
+  if (hasStringEncryption) details.push('String encryption / AES crypto detected');
 
-  return {score, grade, label:gradeLabel[grade], detail:details.join(' · ')||'No indicators found', detectedTools, hasStringEncryption, nameRatio};
+  return {score, grade, label:gradeLabel[grade], detail:details.join(' · ')||'No obfuscation indicators', detectedTools, hasStringEncryption, hasDecoyClasses, hasRepackagedLibs, nameRatio};
 }
 
 // ── Modrinth version tampering check ─────────────────────────────────────────
